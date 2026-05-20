@@ -8,49 +8,116 @@ public class LevelGenerator : MonoBehaviour
 
     public Fence fencePrefab;
 
+    [Header("Chunk Settings")]
+    public int chunkCountX = 2;
+
+    public int chunkCountY = 2;
+
+    public int chunkSize = 4;
+
+    [Header("Shuffle")]
+    public int shuffleMoves = 50;
+
+    [Header("Difficulty")]
+    public int currentLevel = 1;
+
     void Start()
     {
         GenerateLevel();
+        ApplyDifficulty();
     }
 
     void GenerateLevel()
     {
-        int chunkSize = 4;
+        ApplyDifficulty();
+        ClearLevel();
 
-        for (int x = 0; x < 2; x++)
+        GridManager.Instance.ResizeGrid(
+        chunkCountX * chunkSize,
+        chunkCountY * chunkSize);
+
+        for (int x = 0; x < chunkCountX; x++)
         {
-            for (int y = 0; y < 2; y++)
+            for (int y = 0; y < chunkCountY; y++)
             {
-                ChunkData randomChunk =
-                    chunks[
-                        Random.Range(0, chunks.Length)];
-
-                int[] rotations =
-                {
-                0,
-                90,
-                180,
-                270
-            };
-
-                int randomRotation =
-                    rotations[
-                        Random.Range(
-                            0,
-                            rotations.Length)];
-
-                Vector2Int offset =
-                    new Vector2Int(
-                        x * chunkSize,
-                        y * chunkSize);
-
-                PlaceChunk(
-                    randomChunk,
-                    offset,
-                    randomRotation);
+                SpawnRandomChunk(x, y);
             }
         }
-        ShuffleLevel(100);
+
+        ShuffleLevel(shuffleMoves);
+    }
+
+    void SpawnRandomChunk(int x, int y)
+    {
+        ChunkData randomChunk =
+            chunks[
+                Random.Range(0, chunks.Length)];
+
+        int randomRotation =
+            GetRandomRotation();
+
+        Vector2Int offset =
+            new Vector2Int(
+                x * chunkSize,
+                y * chunkSize);
+
+        PlaceChunk(
+            randomChunk,
+            offset,
+            randomRotation);
+    }
+
+    int GetRandomRotation()
+    {
+        int[] rotations =
+        {
+        0,
+        90,
+        180,
+        270
+    };
+
+        return rotations[
+            Random.Range(
+                0,
+                rotations.Length)];
+    }
+
+    void ClearLevel()
+    {
+        AnimalPiece[] animals =
+            FindObjectsOfType<AnimalPiece>();
+
+        foreach (var animal in animals)
+        {
+            Destroy(animal.gameObject);
+        }
+
+        Fence[] fences =
+            FindObjectsOfType<Fence>();
+
+        foreach (var fence in fences)
+        {
+            Destroy(fence.gameObject);
+        }
+
+        ResetGrid();
+    }
+
+    void ResetGrid()
+    {
+        for (int x = 0;
+             x < GridManager.Instance.width;
+             x++)
+        {
+            for (int y = 0;
+                 y < GridManager.Instance.height;
+                 y++)
+            {
+                GridManager.Instance.grid[x, y]
+                    .cellType = CellType.Empty;
+            }
+        }
     }
 
     void PlaceChunk(
@@ -127,7 +194,7 @@ public class LevelGenerator : MonoBehaviour
                 break;
         }
     }
-    
+
     void ShuffleLevel(int moveCount)
     {
         AnimalPiece[] animals =
@@ -157,5 +224,23 @@ public class LevelGenerator : MonoBehaviour
 
             randomAnimal.TryMove(randomDir);
         }
+    }
+
+    void ApplyDifficulty()
+    {
+        chunkCountX =
+            Mathf.Clamp(
+                2 + currentLevel / 5,
+                2,
+                6);
+
+        chunkCountY =
+            Mathf.Clamp(
+                2 + currentLevel / 5,
+                2,
+                6);
+
+        shuffleMoves =
+            20 + currentLevel * 5;
     }
 }

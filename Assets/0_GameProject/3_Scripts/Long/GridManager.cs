@@ -33,6 +33,16 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    public void ResizeGrid(
+    int width,
+    int height)
+    {
+        this.width = width;
+        this.height = height;
+
+        CreateGrid();
+    }
+
     public bool IsInsideGrid(Vector2Int pos)
     {
         return pos.x >= 0 &&
