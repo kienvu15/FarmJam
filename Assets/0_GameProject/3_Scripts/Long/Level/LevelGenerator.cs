@@ -8,6 +8,8 @@ public class LevelGenerator : MonoBehaviour
 
     public Fence fencePrefab;
 
+    public CameraController cameraController;
+
     [Header("Chunk Settings")]
     public int chunkCountX = 2;
 
@@ -35,6 +37,11 @@ public class LevelGenerator : MonoBehaviour
         GridManager.Instance.ResizeGrid(
         chunkCountX * chunkSize,
         chunkCountY * chunkSize);
+
+        cameraController.FitCamera(
+        GridManager.Instance.width,
+        GridManager.Instance.height,
+        GridManager.Instance.cellSize);
 
         for (int x = 0; x < chunkCountX; x++)
         {
