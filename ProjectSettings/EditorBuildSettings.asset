@@ -8,5 +8,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/0_GameProject/0_Scenes/Kien.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/0_GameProject/0_Scenes/Dai.unity
+    guid: 38be549f1f9f740448d83973e1435005
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
