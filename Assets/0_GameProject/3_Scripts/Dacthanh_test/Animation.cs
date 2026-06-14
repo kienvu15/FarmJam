@@ -26,6 +26,7 @@ public class Animation : MonoBehaviour
         initPos   = transform.localPosition;
         initRot   = transform.localEulerAngles;
         initScale = transform.localScale;
+        Stand();
     }
 
     private void ResetAndStand()
