@@ -1,7 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 public class LevelGenerator : MonoBehaviour
 {
+
     public ChunkData[] chunks;
 
     public AnimalPiece animalPrefab;
@@ -9,6 +12,10 @@ public class LevelGenerator : MonoBehaviour
     public Fence fencePrefab;
 
     public CameraController cameraController;
+
+    private List<Vector2Int> freeCells = new List<Vector2Int>();
+
+    public Vector2Int exitCell;
 
     [Header("Chunk Settings")]
     public int chunkCountX = 2;
@@ -18,10 +25,15 @@ public class LevelGenerator : MonoBehaviour
     public int chunkSize = 4;
 
     [Header("Shuffle")]
-    public int shuffleMoves = 50;
+    public int shuffleMoves = 0;
 
     [Header("Difficulty")]
     public int currentLevel = 1;
+
+    [Header("Animal Spawn")]
+    [Range(0.1f, 1f)]
+    public float fillRate = 0.75f;
+
 
     void Start()
     {
@@ -29,8 +41,14 @@ public class LevelGenerator : MonoBehaviour
         ApplyDifficulty();
     }
 
+    #region Level
     void GenerateLevel()
     {
+        exitCell =
+           new Vector2Int(
+            GridManager.Instance.width - 1,
+            GridManager.Instance.height / 2);
+
         ApplyDifficulty();
         ClearLevel();
 
@@ -51,7 +69,9 @@ public class LevelGenerator : MonoBehaviour
             }
         }
 
-        ShuffleLevel(shuffleMoves);
+        CollectFreeCells();
+
+        SpawnAnimals();
     }
 
     void SpawnRandomChunk(int x, int y)
@@ -89,7 +109,6 @@ public class LevelGenerator : MonoBehaviour
                 0,
                 rotations.Length)];
     }
-
     void ClearLevel()
     {
         AnimalPiece[] animals =
@@ -126,9 +145,10 @@ public class LevelGenerator : MonoBehaviour
             }
         }
     }
+    #endregion
 
+    #region Chunk Placement
     void PlaceChunk(
-
         ChunkData chunk,
         Vector2Int offset,
         int rotation)
@@ -178,61 +198,17 @@ public class LevelGenerator : MonoBehaviour
         CellContent content,
         Vector2Int pos)
     {
-        switch (content)
+        if (content == CellContent.Fence)
         {
-            case CellContent.Animal:
+            Fence fence =
+                Instantiate(fencePrefab);
 
-                AnimalPiece animal =
-                    Instantiate(
-                        animalPrefab);
-
-                animal.Setup(pos);
-
-                break;
-
-            case CellContent.Fence:
-
-                Fence fence =
-                    Instantiate(
-                        fencePrefab);
-
-                fence.Setup(pos);
-
-                break;
+            fence.Setup(pos);
         }
     }
+    #endregion
 
-    void ShuffleLevel(int moveCount)
-    {
-        AnimalPiece[] animals =
-            FindObjectsOfType<AnimalPiece>();
-
-        Vector2Int[] dirs =
-        {
-        Vector2Int.up,
-        Vector2Int.down,
-        Vector2Int.left,
-        Vector2Int.right
-    };
-
-        for (int i = 0; i < moveCount; i++)
-        {
-            AnimalPiece randomAnimal =
-                animals[
-                    Random.Range(
-                        0,
-                        animals.Length)];
-
-            Vector2Int randomDir =
-                dirs[
-                    Random.Range(
-                        0,
-                        dirs.Length)];
-
-            randomAnimal.TryMove(randomDir);
-        }
-    }
-
+    #region Difficulty
     void ApplyDifficulty()
     {
         chunkCountX =
@@ -248,6 +224,216 @@ public class LevelGenerator : MonoBehaviour
                 6);
 
         shuffleMoves =
-            20 + currentLevel * 5;
+            100 + currentLevel * 5;
     }
+    #endregion
+
+    #region Animal Spawn
+    void CollectFreeCells()
+    {
+        freeCells.Clear();
+
+        for (int x = 0; x < GridManager.Instance.width; x++)
+        {
+            for (int y = 0; y < GridManager.Instance.height; y++)
+            {
+                if (GridManager.Instance.grid[x, y].cellType
+                    == CellType.Empty)
+                {
+                    freeCells.Add(
+                        new Vector2Int(x, y));
+                }
+            }
+        }
+    }
+
+    void SpawnAnimals()
+    {
+        List<Vector2Int> shuffledCells =
+            new List<Vector2Int>(freeCells);
+
+        for (int i = 0; i < shuffledCells.Count; i++)
+        {
+            int randomIndex =
+                Random.Range(
+                    i,
+                    shuffledCells.Count);
+
+            Vector2Int temp =
+                shuffledCells[i];
+
+            shuffledCells[i] =
+                shuffledCells[randomIndex];
+
+            shuffledCells[randomIndex] =
+                temp;
+        }
+
+        int animalTarget =
+            Mathf.RoundToInt(
+                shuffledCells.Count * fillRate);
+
+        int animalCount = 0;
+        for (int i = 0; i < animalTarget; i++)
+        {
+            Vector2Int cell =
+                shuffledCells[i];
+            bool canHorizontal =
+                CanEscapeHorizontal(cell);
+
+            bool canVertical =
+                CanEscapeVertical(cell);
+
+            if (!canHorizontal &&
+                !canVertical)
+            {
+                continue;
+            }
+
+            AnimalPiece animal =
+                Instantiate(animalPrefab);
+
+            animalCount++;
+
+            if (canHorizontal && canVertical)
+            {
+                animal.isHorizontal =
+                    Random.value > 0.5f;
+            }
+            else
+            {
+                animal.isHorizontal =
+                    canHorizontal;
+            }
+
+            animal.Setup(cell);
+
+            if (animal.isHorizontal)
+            {
+                animal.transform.rotation =
+                    Quaternion.Euler(
+                        0,
+                        90,
+                        0);
+            }
+        }
+
+        Debug.Log("Animal Spawned: " + animalCount);
+
+        ReverseShuffle();
+    }
+
+    void ReverseShuffle()
+    {
+        AnimalPiece[] animals =
+            FindObjectsOfType<AnimalPiece>();
+
+        int successfulMoves = 0;
+
+        int safety = 0;
+
+        while (
+            successfulMoves < shuffleMoves &&
+            safety < shuffleMoves * 20)
+        {
+            safety++;
+
+            AnimalPiece animal =
+                animals[
+                    Random.Range(
+                        0,
+                        animals.Length)];
+
+            Vector2Int dir;
+
+            if (animal.isHorizontal)
+            {
+                dir =
+                    Random.value > 0.5f
+                    ? Vector2Int.left
+                    : Vector2Int.right;
+            }
+            else
+            {
+                dir =
+                    Random.value > 0.5f
+                    ? Vector2Int.up
+                    : Vector2Int.down;
+            }
+
+            if (
+                animal.SlideMoveForShuffle(
+                    -dir))
+            {
+                successfulMoves++;
+            }
+        }
+
+        Debug.Log(
+            "Successful Shuffle = "
+            + successfulMoves);
+    }
+
+    bool CanEscapeHorizontal(Vector2Int pos)
+    {
+        Vector2Int current = pos;
+
+        while (true)
+        {
+            current += Vector2Int.left;
+
+            if (!GridManager.Instance.IsInsideGrid(current))
+                return true;
+
+            if (!GridManager.Instance.IsCellFree(current))
+                break;
+        }
+
+        current = pos;
+
+        while (true)
+        {
+            current += Vector2Int.right;
+
+            if (!GridManager.Instance.IsInsideGrid(current))
+                return true;
+
+            if (!GridManager.Instance.IsCellFree(current))
+                break;
+        }
+
+        return false;
+    }
+
+    bool CanEscapeVertical(Vector2Int pos)
+    {
+        Vector2Int current = pos;
+
+        while (true)
+        {
+            current += Vector2Int.up;
+
+            if (!GridManager.Instance.IsInsideGrid(current))
+                return true;
+
+            if (!GridManager.Instance.IsCellFree(current))
+                break;
+        }
+
+        current = pos;
+
+        while (true)
+        {
+            current += Vector2Int.down;
+
+            if (!GridManager.Instance.IsInsideGrid(current))
+                return true;
+
+            if (!GridManager.Instance.IsCellFree(current))
+                break;
+        }
+
+        return false;
+    }
+    #endregion
 }

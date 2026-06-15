@@ -91,4 +91,12 @@ public class GridManager : MonoBehaviour
             }
         }
     }
+
+    public bool IsBorderCell(Vector2Int pos)
+    {
+        return pos.x == 0 ||
+               pos.y == 0 ||
+               pos.x == width - 1 ||
+               pos.y == height - 1;
+    }
 }
